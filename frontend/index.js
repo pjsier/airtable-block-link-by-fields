@@ -19,6 +19,7 @@ import { FieldType } from "@airtable/blocks/models"
 import React from "react"
 
 const MAX_FIELDS = 3
+const MAX_RECORDS_PER_UPDATE = 50
 
 // Create a mapping of join key values to record IDs
 const createJoinKeyMap = (records, fieldIds, caseInsensitive, joinOnAll) => {
@@ -52,7 +53,12 @@ const createJoinKeyMap = (records, fieldIds, caseInsensitive, joinOnAll) => {
 
 const updateRecords = async (table, recordsToUpdate) => {
   if (table.hasPermissionToUpdateRecords(recordsToUpdate)) {
-    await table.updateRecordsAsync(recordsToUpdate)
+    let i = 0
+    while (i < updateRecords.length) {
+      const updateBatch = updateRecords.slice(i, i + MAX_RECORDS_PER_UPDATE)
+      await table.updateRecordsAsync(updateBatch)
+      i += MAX_RECORDS_PER_UPDATE
+    }
   }
 
   alert("Records have been updated")
@@ -95,6 +101,7 @@ const JoinRecordsBlock = () => {
   // Whether to join on all keys matching or any
   const joinOnAll = globalConfig.get("joinOnAll")
   const [recordsToUpdate, setRecordsToUpdate] = useState([])
+  const [isUpdating, setIsUpdating] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   const selectRecordsToUpdate = () => {
@@ -130,6 +137,14 @@ const JoinRecordsBlock = () => {
         fields: { [joinFieldId]: [joinId] },
       }))
   }
+
+  const updateButtonIsDisabled =
+    !(
+      destTable &&
+      destFieldIds.filter((f) => f !== null).length > 0 &&
+      sourceTable &&
+      sourceFieldIds.filter((f) => f !== null).length > 0
+    ) || isUpdating
 
   return (
     <Box
@@ -199,21 +214,17 @@ const JoinRecordsBlock = () => {
             />
           </FormField>
           <Button
-            disabled={
-              !(
-                destTable &&
-                destFieldIds.filter((f) => f !== null).length > 0 &&
-                sourceTable &&
-                sourceFieldIds.filter((f) => f !== null).length > 0
-              )
-            }
+            disabled={updateButtonIsDisabled}
             onClick={() => {
-              // TODO: Should add a loader here
-              setRecordsToUpdate(selectRecordsToUpdate())
-              setIsDialogOpen(true)
+              setIsUpdating(true, () => {
+                setRecordsToUpdate(selectRecordsToUpdate(), () => {
+                  setIsDialogOpen(true)
+                  setIsUpdating(false)
+                })
+              })
             }}
           >
-            Update records
+            {isUpdating ? `Update records` : `Preparing update...`}
           </Button>
         </Box>
         <Box>
@@ -248,10 +259,17 @@ const JoinRecordsBlock = () => {
         {isDialogOpen && (
           <ConfirmationDialog
             title="Are you sure?"
-            body={`This will update ${recordsToUpdate.length} records`}
+            body={
+              isUpdating
+                ? `Updating records...`
+                : `This will update ${recordsToUpdate.length} records`
+            }
             onConfirm={() => {
-              updateRecords(destTable, recordsToUpdate)
-              setIsDialogOpen(false)
+              setIsUpdating(true, () => {
+                updateRecords(destTable, recordsToUpdate)
+                setIsDialogOpen(false)
+                setIsUpdating(false)
+              })
             }}
             onCancel={() => setIsDialogOpen(false)}
             isConfirmActionDangerous
