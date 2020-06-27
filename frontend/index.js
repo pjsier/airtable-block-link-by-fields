@@ -3,7 +3,6 @@ import {
   useBase,
   useSynced,
   useGlobalConfig,
-  useState,
   FieldPicker,
   FieldPickerSynced,
   TablePickerSynced,
@@ -16,19 +15,19 @@ import {
   Text,
 } from "@airtable/blocks/ui"
 import { FieldType } from "@airtable/blocks/models"
-import React from "react"
+import React, { useState } from "react"
 
 const MAX_FIELDS = 3
 const MAX_RECORDS_PER_UPDATE = 50
 
 // Create a mapping of join key values to record IDs
-const createJoinKeyMap = (records, fieldIds, caseInsensitive, joinOnAll) => {
+const createJoinKeyMap = (records, fieldIds, caseSensitive, joinOnAll) => {
   const getValidJoinKeys = (rec) =>
     fieldIds
       .filter((fieldId) => fieldId !== null)
       .map((fieldId) => {
         const val = rec.getCellValueAsString(fieldId)
-        return caseInsensitive ? val.toLowerCase() : val
+        return caseSensitive ? val : val.toLowerCase()
       })
       .filter((val) => val.length > 0)
 
@@ -51,11 +50,28 @@ const createJoinKeyMap = (records, fieldIds, caseInsensitive, joinOnAll) => {
     )
 }
 
+const findRecordsToUpdate = async (destKeyMap, sourceKeyMap, joinFieldId) =>
+  Object.entries(destKeyMap)
+    .map(([key, id]) =>
+      key in sourceKeyMap ? { id, key, joinId: sourceKeyMap[key] } : null
+    )
+    .filter((match) => match !== null)
+    .map(({ id, joinId }) => ({
+      id,
+      fields: { [joinFieldId]: [{ id: joinId }] },
+    }))
+
+// Load fields from table by array of IDs, add null at the end if not at max
+const getFieldsFromTableIds = (table, fieldIds) => [
+  ...fieldIds.map((fieldId) => table.getFieldByIdIfExists(fieldId)),
+  ...(fieldIds.length < MAX_FIELDS ? [null] : []),
+]
+
 const updateRecords = async (table, recordsToUpdate) => {
   if (table.hasPermissionToUpdateRecords(recordsToUpdate)) {
     let i = 0
-    while (i < updateRecords.length) {
-      const updateBatch = updateRecords.slice(i, i + MAX_RECORDS_PER_UPDATE)
+    while (i < recordsToUpdate.length) {
+      const updateBatch = recordsToUpdate.slice(i, i + MAX_RECORDS_PER_UPDATE)
       await table.updateRecordsAsync(updateBatch)
       i += MAX_RECORDS_PER_UPDATE
     }
@@ -68,9 +84,7 @@ const onFieldIdsChange = (fieldIds, newFieldId, fieldIdx, setFieldIds) => {
   fieldIds[fieldIdx] = newFieldId
   // Remove null field IDs
   const fieldIdsWithValues = fieldIds.filter((fId) => !!fId)
-  // Add a null field ID if there is remaining space so more fields can be entered
-  const nextValue = fieldIdsWithValues.length === MAX_FIELDS ? [] : [null]
-  setFieldIds([...fieldIdsWithValues, ...nextValue])
+  setFieldIds([...fieldIdsWithValues])
 }
 
 const JoinRecordsBlock = () => {
@@ -84,6 +98,8 @@ const JoinRecordsBlock = () => {
   const [destFieldIds, setDestFieldIds, canSetDestFieldIds] = useSynced(
     "destFieldIds"
   )
+  const destFields = getFieldsFromTableIds(destTable, destFieldIds || [])
+
   const joinFieldId = globalConfig.get("joinFieldId")
   const joinField = destTable
     ? destTable.getFieldByIdIfExists(joinFieldId)
@@ -95,56 +111,53 @@ const JoinRecordsBlock = () => {
   const [sourceFieldIds, setSourceFieldIds, canSetSourceFieldIds] = useSynced(
     "sourceFieldIds"
   )
+  const sourceFields = getFieldsFromTableIds(sourceTable, sourceFieldIds || [])
 
-  const caseInsensitive = globalConfig.get("caseInsensitive")
+  // Is join key matching case-sensitive
+  const caseSensitive = globalConfig.get("caseSensitive")
+  // Whether destination records with values for the join field should be overwritten
   const overwriteExisting = globalConfig.get("overwriteExisting")
   // Whether to join on all keys matching or any
   const joinOnAll = globalConfig.get("joinOnAll")
   const [recordsToUpdate, setRecordsToUpdate] = useState([])
+  const [isPreparing, setIsPreparing] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-  const selectRecordsToUpdate = () => {
+  const selectRecordsToUpdate = async () => {
     // Pull records to be updated
-    const destRecords = (destView
-      ? destView.selectRecords()
-      : destTable.selectRecords()
-    ).filter((rec) => {
+    const { records: loadedRecords } = await (
+      destView || destTable
+    ).selectRecordsAsync()
+    const destRecords = loadedRecords.filter((rec) => {
       if (overwriteExisting) return true
       // If not overwriting existing, only pull records where the join field is empty
-      return rec.getCellValue(joinFieldId).length === 0
+      return (rec.getCellValue(joinFieldId) || []).length === 0
     })
+    const { records: sourceRecords } = await sourceTable.selectRecordsAsync()
+
     const destKeyMap = createJoinKeyMap(
       destRecords,
       destFieldIds,
-      caseInsensitive,
+      caseSensitive,
       joinOnAll
     )
-    const sourceRecords = sourceTable.selectRecords()
     const sourceKeyMap = createJoinKeyMap(
       sourceRecords,
       sourceFieldIds,
-      caseInsensitive,
+      caseSensitive,
       joinOnAll
     )
-    return Object.entries(destKeyMap)
-      .map(([key, id]) =>
-        key in sourceKeyMap ? { id, key, joinId: sourceKeyMap[key] } : null
-      )
-      .filter((match) => match !== null)
-      .map(({ id, joinId }) => ({
-        id,
-        fields: { [joinFieldId]: [joinId] },
-      }))
+    return findRecordsToUpdate(destKeyMap, sourceKeyMap, joinFieldId)
   }
 
   const updateButtonIsDisabled =
     !(
-      destTable &&
-      destFieldIds.filter((f) => f !== null).length > 0 &&
-      sourceTable &&
-      sourceFieldIds.filter((f) => f !== null).length > 0
-    ) || isUpdating
+      destFields.filter((f) => f !== null).length > 0 &&
+      sourceFields.filter((f) => f !== null).length > 0
+    ) ||
+    isPreparing ||
+    isUpdating
 
   return (
     <Box
@@ -180,15 +193,15 @@ const JoinRecordsBlock = () => {
                   width="320px"
                 />
               </FormField>
-              {(destFieldIds || [null]).map((fieldId, idx) => (
+              {destFields.map((field, idx) => (
                 <FormField key={idx}>
                   <FieldPicker
                     table={destTable}
-                    value={fieldId}
-                    onChange={(newFieldId) =>
+                    field={field}
+                    onChange={(newField) =>
                       onFieldIdsChange(
-                        destFieldIds,
-                        newFieldId,
+                        destFieldIds || [],
+                        newField.id,
                         idx,
                         setDestFieldIds
                       )
@@ -203,7 +216,7 @@ const JoinRecordsBlock = () => {
           )}
           <FormField>
             <SwitchSynced
-              globalConfigKey={"isCaseInsensitive"}
+              globalConfigKey={"caseSensitive"}
               label="Is join lookup case-sensitive?"
             />
           </FormField>
@@ -213,32 +226,36 @@ const JoinRecordsBlock = () => {
               label="Should records only join if all keys match? Default is matching any key"
             />
           </FormField>
+          <FormField>
+            <SwitchSynced
+              globalConfigKey={"overwriteExisting"}
+              label="Should records with existing linked records be overwritten?"
+            />
+          </FormField>
           <Button
             disabled={updateButtonIsDisabled}
-            onClick={() => {
-              setIsUpdating(true, () => {
-                setRecordsToUpdate(selectRecordsToUpdate(), () => {
-                  setIsDialogOpen(true)
-                  setIsUpdating(false)
-                })
-              })
+            onClick={async () => {
+              setIsPreparing(true)
+              setRecordsToUpdate(await selectRecordsToUpdate())
+              setIsDialogOpen(true)
+              setIsPreparing(false)
             }}
           >
-            {isUpdating ? `Update records` : `Preparing update...`}
+            {isPreparing ? `Preparing update...` : `Update records`}
           </Button>
         </Box>
         <Box>
           {sourceTable ? (
             <>
-              {(sourceFieldIds || [null]).map((fieldId, idx) => (
+              {sourceFields.map((field, idx) => (
                 <FormField key={idx}>
                   <FieldPicker
                     table={sourceTable}
-                    value={fieldId}
-                    onChange={(newFieldId) =>
+                    field={field}
+                    onChange={(newField) =>
                       onFieldIdsChange(
-                        sourceFieldIds,
-                        newFieldId,
+                        sourceFieldIds || [],
+                        newField.id,
                         idx,
                         setSourceFieldIds
                       )
@@ -265,11 +282,10 @@ const JoinRecordsBlock = () => {
                 : `This will update ${recordsToUpdate.length} records`
             }
             onConfirm={() => {
-              setIsUpdating(true, () => {
-                updateRecords(destTable, recordsToUpdate)
-                setIsDialogOpen(false)
-                setIsUpdating(false)
-              })
+              setIsUpdating(true)
+              updateRecords(destTable, recordsToUpdate)
+              setIsDialogOpen(false)
+              setIsUpdating(false)
             }}
             onCancel={() => setIsDialogOpen(false)}
             isConfirmActionDangerous
