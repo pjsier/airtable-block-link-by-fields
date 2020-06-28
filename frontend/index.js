@@ -11,6 +11,7 @@ import {
   Box,
   Button,
   ConfirmationDialog,
+  Heading,
   FormField,
   Text,
 } from "@airtable/blocks/ui"
@@ -63,8 +64,10 @@ const findRecordsToUpdate = async (destKeyMap, sourceKeyMap, joinFieldId) =>
 
 // Load fields from table by array of IDs, add null at the end if not at max
 const getFieldsFromTableIds = (table, fieldIds) => [
-  ...fieldIds.map((fieldId) => table.getFieldByIdIfExists(fieldId)),
-  ...(fieldIds.length < MAX_FIELDS ? [null] : []),
+  ...[...new Set(fieldIds)].map((fieldId) =>
+    table.getFieldByIdIfExists(fieldId)
+  ),
+  ...(new Set(fieldIds).size < MAX_FIELDS ? [null] : []),
 ]
 
 const updateRecords = async (table, recordsToUpdate) => {
@@ -166,25 +169,37 @@ const JoinRecordsBlock = () => {
       left={0}
       right={0}
       bottom={0}
+      padding={2}
       display="flex"
       flexDirection="column"
     >
-      <Box display="flex" padding={3} borderBottom="thick">
-        <Box>
-          <FormField>
-            <TablePickerSynced globalConfigKey={"destTableId"} width="320px" />
-          </FormField>
-          {destTable && (
-            <>
-              <FormField>
-                <ViewPickerSynced
-                  table={destTable}
-                  globalConfigKey={"destViewId"}
-                  size="small"
+      <Box padding={2} display="flex" flexDirection="row" borderBottom="thick">
+        <Box padding={1}>
+          <Heading>{`Records to join`}</Heading>
+          <Text style={{ marginBottom: "12px" }}>
+            {`Select records that need to be joined to a source. i.e. event sign-ups that need to be linked to members by email`}
+          </Text>
+          <Box display="flex" flexDirection="row">
+            <Box padding={1}>
+              <FormField label="Table to be updated">
+                <TablePickerSynced
+                  globalConfigKey={"destTableId"}
                   width="320px"
                 />
               </FormField>
-              <FormField>
+            </Box>
+            <FormField label="Table view to pull records from (optional)">
+              <ViewPickerSynced
+                table={null}
+                globalConfigKey={"destViewId"}
+                size="small"
+                width="320px"
+              />
+            </FormField>
+          </Box>
+          <Box display="flex" flexDirection="row">
+            <Box padding={1}>
+              <FormField label="Linked field to update">
                 <FieldPickerSynced
                   table={destTable}
                   allowedTypes={[FieldType.MULTIPLE_RECORD_LINKS]}
@@ -193,45 +208,98 @@ const JoinRecordsBlock = () => {
                   width="320px"
                 />
               </FormField>
+            </Box>
+            <Box display="flex" flexDirection="column">
               {destFields.map((field, idx) => (
-                <FormField key={idx}>
+                <Box key={idx} padding={1}>
+                  <FormField label="Fields to join based on">
+                    <FieldPicker
+                      table={destTable}
+                      field={field}
+                      onChange={(newField) =>
+                        onFieldIdsChange(
+                          destFieldIds || [],
+                          newField ? newField.id : null,
+                          idx,
+                          setDestFieldIds
+                        )
+                      }
+                      disabled={!canSetDestFieldIds}
+                      shouldAllowPickingNone
+                      size="small"
+                      width="320px"
+                    />
+                  </FormField>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        </Box>
+        <Box padding={1}>
+          <Heading>{`Source records for join`}</Heading>
+          <Text style={{ marginBottom: "12px" }}>
+            {`Source table and fields for records that need to be updated in the selected field of "Records to join"`}
+          </Text>
+          {sourceTable ? (
+            <>
+              {sourceFields.map((field, idx) => (
+                <FormField label="Fields to join based on" key={idx}>
                   <FieldPicker
-                    table={destTable}
+                    table={sourceTable}
                     field={field}
                     onChange={(newField) =>
                       onFieldIdsChange(
-                        destFieldIds || [],
-                        newField.id,
+                        sourceFieldIds || [],
+                        newField ? newField.id : null,
                         idx,
-                        setDestFieldIds
+                        setSourceFieldIds
                       )
                     }
-                    disabled={!canSetDestFieldIds}
+                    disabled={!canSetSourceFieldIds}
+                    shouldAllowPickingNone
                     size="small"
                     width="320px"
                   />
                 </FormField>
               ))}
             </>
+          ) : (
+            <Text>
+              {`Select a source record field in "Records to join" to enable options`}
+            </Text>
           )}
-          <FormField>
+        </Box>
+      </Box>
+      <Box padding={2} display="flex" flexDirection="row">
+        <Box padding={1}>
+          <Heading>{`Settings`}</Heading>
+          <Text style={{ marginBottom: "12px" }}>{`Join configuration`}</Text>
+          <FormField label="Is join case-sensitive?">
             <SwitchSynced
               globalConfigKey={"caseSensitive"}
-              label="Is join lookup case-sensitive?"
+              label="Case-sensitive"
             />
           </FormField>
-          <FormField>
+          <FormField
+            label="Should join require all keys?"
+            description="By default it will match if any key matches"
+          >
             <SwitchSynced
               globalConfigKey={"joinOnAll"}
-              label="Should records only join if all keys match? Default is matching any key"
+              label="Join on all keys"
             />
           </FormField>
-          <FormField>
+          <FormField
+            label="Overwrite existing"
+            description="Should records with existing matches be overwritten with new matches?"
+          >
             <SwitchSynced
               globalConfigKey={"overwriteExisting"}
-              label="Should records with existing linked records be overwritten?"
+              label="Overwrite existing"
             />
           </FormField>
+        </Box>
+        <Box padding={1}>
           <Button
             disabled={updateButtonIsDisabled}
             onClick={async () => {
@@ -244,54 +312,25 @@ const JoinRecordsBlock = () => {
             {isPreparing ? `Preparing update...` : `Update records`}
           </Button>
         </Box>
-        <Box>
-          {sourceTable ? (
-            <>
-              {sourceFields.map((field, idx) => (
-                <FormField key={idx}>
-                  <FieldPicker
-                    table={sourceTable}
-                    field={field}
-                    onChange={(newField) =>
-                      onFieldIdsChange(
-                        sourceFieldIds || [],
-                        newField.id,
-                        idx,
-                        setSourceFieldIds
-                      )
-                    }
-                    disabled={!canSetSourceFieldIds}
-                    size="small"
-                    width="320px"
-                  />
-                </FormField>
-              ))}
-            </>
-          ) : (
-            <Text>
-              {`Select a source field to set the destination field join keys`}
-            </Text>
-          )}
-        </Box>
-        {isDialogOpen && (
-          <ConfirmationDialog
-            title="Are you sure?"
-            body={
-              isUpdating
-                ? `Updating records...`
-                : `This will update ${recordsToUpdate.length} records`
-            }
-            onConfirm={() => {
-              setIsUpdating(true)
-              updateRecords(destTable, recordsToUpdate)
-              setIsDialogOpen(false)
-              setIsUpdating(false)
-            }}
-            onCancel={() => setIsDialogOpen(false)}
-            isConfirmActionDangerous
-          />
-        )}
       </Box>
+      {isDialogOpen && (
+        <ConfirmationDialog
+          title="Are you sure?"
+          body={
+            isUpdating
+              ? `Updating records...`
+              : `This will update ${recordsToUpdate.length} records`
+          }
+          onConfirm={() => {
+            setIsUpdating(true)
+            updateRecords(destTable, recordsToUpdate)
+            setIsDialogOpen(false)
+            setIsUpdating(false)
+          }}
+          onCancel={() => setIsDialogOpen(false)}
+          isConfirmActionDangerous
+        />
+      )}
     </Box>
   )
 }
