@@ -101,7 +101,9 @@ const JoinRecordsBlock = () => {
   const [destFieldIds, setDestFieldIds, canSetDestFieldIds] = useSynced(
     "destFieldIds"
   )
-  const destFields = getFieldsFromTableIds(destTable, destFieldIds || [])
+  const destFields = destTable
+    ? getFieldsFromTableIds(destTable, destFieldIds || [])
+    : []
 
   const joinFieldId = globalConfig.get("joinFieldId")
   const joinField = destTable
@@ -114,7 +116,9 @@ const JoinRecordsBlock = () => {
   const [sourceFieldIds, setSourceFieldIds, canSetSourceFieldIds] = useSynced(
     "sourceFieldIds"
   )
-  const sourceFields = getFieldsFromTableIds(sourceTable, sourceFieldIds || [])
+  const sourceFields = sourceTable
+    ? getFieldsFromTableIds(sourceTable, sourceFieldIds || [])
+    : []
 
   // Is join key matching case-sensitive
   const caseSensitive = globalConfig.get("caseSensitive")
@@ -173,83 +177,85 @@ const JoinRecordsBlock = () => {
       display="flex"
       flexDirection="column"
     >
-      <Box padding={2} display="flex" flexDirection="row" borderBottom="thick">
+      <Box
+        padding={2}
+        display="flex"
+        flexDirection="column"
+        borderBottom="thick"
+        style={{ width: "100%" }}
+      >
         <Box padding={1}>
           <Heading>{`Records to join`}</Heading>
           <Text style={{ marginBottom: "12px" }}>
             {`Select records that need to be joined to a source. i.e. event sign-ups that need to be linked to members by email`}
           </Text>
-          <Box display="flex" flexDirection="row">
-            <Box padding={1}>
-              <FormField label="Table to be updated">
-                <TablePickerSynced
-                  globalConfigKey={"destTableId"}
-                  width="320px"
-                />
-              </FormField>
-            </Box>
+        </Box>
+        <Box display="flex" flexDirection="row">
+          <Box padding={1} style={{ flexGrow: "1" }}>
+            <FormField label="Table to be updated">
+              <TablePickerSynced
+                globalConfigKey={"destTableId"}
+                width="320px"
+              />
+            </FormField>
             <FormField label="Table view to pull records from (optional)">
               <ViewPickerSynced
-                table={null}
+                table={destTable}
+                shouldAllowPickingNone
                 globalConfigKey={"destViewId"}
                 size="small"
                 width="320px"
               />
             </FormField>
           </Box>
-          <Box display="flex" flexDirection="row">
-            <Box padding={1}>
-              <FormField label="Linked field to update">
-                <FieldPickerSynced
-                  table={destTable}
-                  allowedTypes={[FieldType.MULTIPLE_RECORD_LINKS]}
-                  globalConfigKey={"joinFieldId"}
-                  size="small"
-                  width="320px"
-                />
-              </FormField>
-            </Box>
-            <Box display="flex" flexDirection="column">
-              {destFields.map((field, idx) => (
-                <Box key={idx} padding={1}>
-                  <FormField label="Fields to join based on">
-                    <FieldPicker
-                      table={destTable}
-                      field={field}
-                      onChange={(newField) =>
-                        onFieldIdsChange(
-                          destFieldIds || [],
-                          newField ? newField.id : null,
-                          idx,
-                          setDestFieldIds
-                        )
-                      }
-                      disabled={!canSetDestFieldIds}
-                      shouldAllowPickingNone
-                      size="small"
-                      width="320px"
-                    />
-                  </FormField>
-                </Box>
-              ))}
-            </Box>
+          <Box padding={1} style={{ flexGrow: "1" }}>
+            <FormField label="Linked field to update">
+              <FieldPickerSynced
+                table={destTable}
+                allowedTypes={[FieldType.MULTIPLE_RECORD_LINKS]}
+                globalConfigKey={"joinFieldId"}
+                size="small"
+                width="320px"
+              />
+            </FormField>
           </Box>
         </Box>
-        <Box padding={1}>
-          <Heading>{`Source records for join`}</Heading>
-          <Text style={{ marginBottom: "12px" }}>
-            {`Source table and fields for records that need to be updated in the selected field of "Records to join"`}
-          </Text>
-          {sourceTable ? (
-            <>
-              {sourceFields.map((field, idx) => (
-                <FormField label="Fields to join based on" key={idx}>
+        <Box display="flex" flexDirection="row">
+          <Box padding={1} style={{ flexGrow: "1", width: "50%" }}>
+            <FormField label="Fields to join based on">
+              {destFields.map((field, idx) => (
+                <FieldPicker
+                  key={idx}
+                  table={destTable}
+                  field={field}
+                  onChange={(newField) =>
+                    onFieldIdsChange(
+                      destFieldIds || [],
+                      newField ? newField.id : null,
+                      idx,
+                      setDestFieldIds
+                    )
+                  }
+                  disabled={!canSetDestFieldIds}
+                  shouldAllowPickingNone
+                  size="small"
+                  width="320px"
+                  style={{ marginBottom: "4px" }}
+                />
+              ))}
+            </FormField>
+          </Box>
+          <Box padding={1} style={{ flexGrow: "1", width: "50%" }}>
+            <FormField label="Fields to join based on">
+              {sourceTable ? (
+                sourceFields.map((field, idx) => (
                   <FieldPicker
+                    key={idx}
                     table={sourceTable}
                     field={field}
                     onChange={(newField) =>
                       onFieldIdsChange(
-                        sourceFieldIds || [],
+                        destFieldIds || [],
                         newField ? newField.id : null,
                         idx,
                         setSourceFieldIds
@@ -259,49 +265,41 @@ const JoinRecordsBlock = () => {
                     shouldAllowPickingNone
                     size="small"
                     width="320px"
+                    style={{ marginBottom: "4px" }}
                   />
-                </FormField>
-              ))}
-            </>
-          ) : (
-            <Text>
-              {`Select a source record field in "Records to join" to enable options`}
-            </Text>
-          )}
+                ))
+              ) : (
+                <Text>
+                  {`Select a source record field in "Records to join" to enable options`}
+                </Text>
+              )}
+            </FormField>
+          </Box>
         </Box>
       </Box>
-      <Box padding={2} display="flex" flexDirection="row">
-        <Box padding={1}>
-          <Heading>{`Settings`}</Heading>
-          <Text style={{ marginBottom: "12px" }}>{`Join configuration`}</Text>
-          <FormField label="Is join case-sensitive?">
+      <Box padding={2}>
+        <Box padding={1} style={{ width: "50%", flexGrow: "1" }}>
+          <FormField label="">
             <SwitchSynced
               globalConfigKey={"caseSensitive"}
               label="Case-sensitive"
             />
           </FormField>
-          <FormField
-            label="Should join require all keys?"
-            description="By default it will match if any key matches"
-          >
+          <FormField label="">
             <SwitchSynced
               globalConfigKey={"joinOnAll"}
-              label="Join on all keys"
+              label="Only update record when all fields match"
             />
           </FormField>
-          <FormField
-            label="Overwrite existing"
-            description="Should records with existing matches be overwritten with new matches?"
-          >
+          <FormField label="">
             <SwitchSynced
               globalConfigKey={"overwriteExisting"}
-              label="Overwrite existing"
+              label="Overwrite existing linked records with new matches"
             />
           </FormField>
-        </Box>
-        <Box padding={1}>
           <Button
             disabled={updateButtonIsDisabled}
+            variant="primary"
             onClick={async () => {
               setIsPreparing(true)
               setRecordsToUpdate(await selectRecordsToUpdate())
