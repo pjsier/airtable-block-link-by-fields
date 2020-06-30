@@ -1,5 +1,5 @@
 {
-  "name": "airtable-block-link-by-field",
+  "name": "airtable-block-link-by-fields",
   "version": "0.1.0",
   "license": "MIT",
   "scripts": {
