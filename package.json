@@ -1,5 +1,5 @@
 {
-  "name": "airtable-block-join-records",
+  "name": "airtable-block-link-by-field",
   "version": "0.1.0",
   "license": "MIT",
   "scripts": {
@@ -9,7 +9,9 @@
   "dependencies": {
     "@airtable/blocks": "latest",
     "react": "^16.13.0",
-    "react-dom": "^16.13.0"
+    "react-dom": "^16.13.0",
+    "react-virtualized-auto-sizer": "^1.0.2",
+    "react-window": "^1.8.5"
   },
   "devDependencies": {
     "@commitlint/cli": "^9.0.1",
