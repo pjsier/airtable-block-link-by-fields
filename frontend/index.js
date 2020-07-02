@@ -183,7 +183,11 @@ const LinkByFieldsBlock = () => {
   }, [joinFieldId])
 
   const sourceKeyMap =
-    sourceTable && (sourceFieldIds || []).length > 0
+    sourceTable &&
+    (sourceFieldIds || []).every((fieldId) =>
+      sourceTable.getFieldByIdIfExists(fieldId)
+    ) &&
+    sourceFieldIds.length > 0
       ? createJoinKeyMap(
           sourceRecords,
           sourceFieldIds,
@@ -234,7 +238,7 @@ const LinkByFieldsBlock = () => {
   let recordUpdatesDescription = `Select a linked record field to update`
   if (joinField) {
     recordUpdatesDescription = isUpdating
-      ? `Updating ${recordLinks.length.toLocaleString()} records...`
+      ? `Updating records...`
       : `The ${
           joinField.name
         } field of ${recordLinks.length.toLocaleString()} records will be updated`
