@@ -14,12 +14,9 @@
     "react-window": "^1.8.5"
   },
   "devDependencies": {
-    "@commitlint/cli": "^9.1.1",
-    "@commitlint/config-conventional": "^9.1.1",
-    "eslint": "^7.2.0",
-    "eslint-plugin-react": "^7.20.3",
+    "eslint": "^7.6.0",
+    "eslint-plugin-react": "^7.20.5",
     "eslint-plugin-react-hooks": "^2.5.1",
-    "husky": "^4.2.5",
     "prettier": "^2.0.5"
   },
   "eslintConfig": {
@@ -63,10 +60,5 @@
     "singleQuote": false,
     "tabWidth": 2,
     "trailingComma": "es5"
-  },
-  "husky": {
-    "hooks": {
-      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS -x @commitlint/config-conventional"
-    }
   }
 }
