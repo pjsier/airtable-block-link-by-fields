@@ -190,6 +190,27 @@ const LinkByFieldsBlock = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joinFieldId])
 
+  // If user doesn't have permissions, show permission reason instead of block
+  const configSetPermissions = globalConfig.checkPermissionsForSet()
+  if (!configSetPermissions.hasPermission) {
+    return (
+      <Box
+        position="absolute"
+        top={0}
+        left={0}
+        right={0}
+        bottom={0}
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Text textColor="light" fontWeight="500">
+          {configSetPermissions.reasonDisplayString}
+        </Text>
+      </Box>
+    )
+  }
+
   const sourceKeyMap =
     sourceTable &&
     (sourceFieldIds || []).every((fieldId) =>
