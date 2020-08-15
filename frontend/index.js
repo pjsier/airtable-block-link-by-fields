@@ -154,6 +154,7 @@ const LinkByFieldsBlock = () => {
   const overwriteExisting = globalConfig.get(CONFIG.OVERWRITE_EXISTING)
   // Whether to join on all keys matching or any
   const joinOnAll = globalConfig.get(CONFIG.JOIN_ON_ALL)
+  const [didMount, setDidMount] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const destTableOrView = destTable || destView
@@ -164,8 +165,14 @@ const LinkByFieldsBlock = () => {
     sourceTable ? sourceTable.selectRecords() : []
   )
 
+  // Avoid triggering effects on initial load so that values aren't un-set
+  useEffect(() => {
+    setDidMount(true)
+  }, [])
+
   // Unset config when the fields change
   useEffect(() => {
+    if (!didMount) return
     const updateFields = async () => {
       await globalConfig.setAsync(CONFIG.DEST_FIELD_IDS, [])
       await globalConfig.setAsync(CONFIG.JOIN_FIELD_ID, undefined)
@@ -175,6 +182,7 @@ const LinkByFieldsBlock = () => {
   }, [destTableId])
 
   useEffect(() => {
+    if (!didMount) return
     const updateFields = async () => {
       await globalConfig.setAsync(CONFIG.SOURCE_FIELD_IDS, [])
     }
