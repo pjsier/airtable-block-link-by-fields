@@ -5,9 +5,8 @@ import {
   Text,
   FormField,
   FieldPicker,
-  FieldPickerSynced,
   SwitchSynced,
-  TablePickerSynced,
+  TablePicker,
   ViewPickerSynced,
   colors,
 } from "@airtable/blocks/ui"
@@ -17,18 +16,19 @@ import { CONFIG } from "./constants"
 
 const Controls = ({
   destTable,
+  onChangeDestTable,
+  joinField,
+  onChangeJoinField,
   destFields,
   onChangeDestFields,
-  canSetDestFieldIds,
   sourceTable,
   sourceFields,
   onChangeSourceFields,
-  canSetSourceFieldIds,
 }) => (
   <Box minWidth={400}>
     <Box padding={3} paddingBottom={0} display="flex" flexDirection="column">
       <FormField label="Table">
-        <TablePickerSynced globalConfigKey={CONFIG.DEST_TABLE_ID} />
+        <TablePicker table={destTable} onChange={onChangeDestTable} />
       </FormField>
       {destTable && (
         <>
@@ -41,10 +41,11 @@ const Controls = ({
             />
           </FormField>
           <FormField label="Linked record field">
-            <FieldPickerSynced
+            <FieldPicker
               table={destTable}
+              field={joinField}
               allowedTypes={[FieldType.MULTIPLE_RECORD_LINKS]}
-              globalConfigKey={CONFIG.JOIN_FIELD_ID}
+              onChange={onChangeJoinField}
               size="small"
             />
           </FormField>
@@ -70,7 +71,6 @@ const Controls = ({
                     table={destTable}
                     field={field}
                     onChange={(newField) => onChangeDestFields(newField, idx)}
-                    disabled={!canSetDestFieldIds}
                     shouldAllowPickingNone
                     size="small"
                     style={{ marginBottom: "4px" }}
@@ -89,7 +89,6 @@ const Controls = ({
                       onChange={(newField) =>
                         onChangeSourceFields(newField, idx)
                       }
-                      disabled={!canSetSourceFieldIds}
                       shouldAllowPickingNone
                       size="small"
                       style={{ marginBottom: "4px" }}

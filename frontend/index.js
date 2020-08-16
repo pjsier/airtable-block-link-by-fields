@@ -3,7 +3,6 @@ import React, { useState } from "react"
 import {
   initializeBlock,
   useBase,
-  useSynced,
   useGlobalConfig,
   Box,
   Button,
@@ -77,7 +76,7 @@ const onFieldIdsChange = (fieldIds, newFieldId, fieldIdx, setFieldIds) => {
   fieldIds[fieldIdx] = newFieldId
   // Remove null field IDs
   const fieldIdsWithValues = fieldIds.filter((fId) => !!fId)
-  setFieldIds([...fieldIdsWithValues])
+  setFieldIds([...fieldIdsWithValues].join(","))
 }
 
 const LinkByFieldsBlock = () => {
@@ -88,17 +87,16 @@ const LinkByFieldsBlock = () => {
   const destTable = base.getTableByIdIfExists(destTableId)
   const destViewId = globalConfig.get(CONFIG.DEST_VIEW_ID)
   const destView = destTable ? destTable.getViewByIdIfExists(destViewId) : null
-  const [destFieldIds, setDestFieldIds, canSetDestFieldIds] = useSynced(
-    CONFIG.DEST_FIELD_IDS
-  )
+
+  // Splitting string values instead of arrays because global config state
+  // seems to report changes on arrays when none occurred
+  const destFieldIds = (globalConfig.get(CONFIG.DEST_FIELD_IDS) || "")
+    .toString()
+    .split(",")
+    .filter((v) => !!v)
   const destFields = destTable
     ? getFieldsFromTableIds(destTable, destFieldIds || [])
     : []
-  // Only use valid field IDs, since relying entirely on synced global config
-  // state can result in some race conditions
-  const validDestFieldIds = destFields
-    .filter((field) => !!field)
-    .map(({ id }) => id)
 
   const joinFieldId = globalConfig.get(CONFIG.JOIN_FIELD_ID)
   const joinField = destTable
@@ -108,15 +106,13 @@ const LinkByFieldsBlock = () => {
   const sourceTable = joinField
     ? base.getTableByIdIfExists(joinField.options.linkedTableId)
     : null
-  const [sourceFieldIds, setSourceFieldIds, canSetSourceFieldIds] = useSynced(
-    CONFIG.SOURCE_FIELD_IDS
-  )
+  const sourceFieldIds = (globalConfig.get(CONFIG.SOURCE_FIELD_IDS) || "")
+    .toString()
+    .split(",")
+    .filter((v) => !!v)
   const sourceFields = sourceTable
     ? getFieldsFromTableIds(sourceTable, sourceFieldIds || [])
     : []
-  const validSourceFieldIds = sourceFields
-    .filter((field) => !!field)
-    .map(({ id }) => id)
 
   // Is join key matching case-sensitive
   const caseSensitive = globalConfig.get(CONFIG.CASE_SENSITIVE)
@@ -157,13 +153,13 @@ const LinkByFieldsBlock = () => {
 
   const sourceKeyMap =
     sourceTable &&
-    (validSourceFieldIds || []).every((fieldId) =>
+    (sourceFieldIds || []).every((fieldId) =>
       sourceTable.getFieldByIdIfExists(fieldId)
     ) &&
-    (validSourceFieldIds || []).length > 0
+    (sourceFieldIds || []).length > 0
       ? createJoinKeyMap(
           sourceRecords,
-          validSourceFieldIds,
+          sourceFieldIds,
           caseSensitive,
           joinOnAll
         )
@@ -172,7 +168,7 @@ const LinkByFieldsBlock = () => {
   const recordsToLink =
     destRecords &&
     joinFieldId &&
-    [joinFieldId, ...validDestFieldIds].every((fieldId) =>
+    [joinFieldId, ...destFieldIds].every((fieldId) =>
       destTable.getFieldByIdIfExists(fieldId)
     )
       ? destRecords
@@ -189,7 +185,7 @@ const LinkByFieldsBlock = () => {
       }
       const joinKeys = createJoinKeys(
         record,
-        validDestFieldIds || [],
+        destFieldIds || [],
         caseSensitive,
         joinOnAll
       )
@@ -244,27 +240,48 @@ const LinkByFieldsBlock = () => {
         <Box flex="auto" display="flex" flexDirection="row">
           <Controls
             destTable={destTable}
+            onChangeDestTable={(newTable) =>
+              globalConfig.setPathsAsync([
+                {
+                  path: [CONFIG.DEST_TABLE_ID],
+                  value: newTable ? newTable.id : undefined,
+                },
+                { path: [CONFIG.DEST_FIELD_IDS], value: "" },
+                { path: [CONFIG.JOIN_FIELD_ID], value: undefined },
+              ])
+            }
+            joinField={joinField}
+            onChangeJoinField={(newField) =>
+              globalConfig.setPathsAsync([
+                {
+                  path: [CONFIG.JOIN_FIELD_ID],
+                  value: newField ? newField.id : undefined,
+                },
+                {
+                  path: [CONFIG.SOURCE_FIELD_IDS],
+                  value: "",
+                },
+              ])
+            }
             destFields={destFields}
             onChangeDestFields={(newField, idx) => {
               onFieldIdsChange(
-                validDestFieldIds || [],
+                destFieldIds || [],
                 newField ? newField.id : null,
                 idx,
-                setDestFieldIds
+                (value) => globalConfig.setAsync(CONFIG.DEST_FIELD_IDS, value)
               )
             }}
-            canSetDestFieldIds={canSetDestFieldIds}
             sourceTable={sourceTable}
             sourceFields={sourceFields}
             onChangeSourceFields={(newField, idx) => {
               onFieldIdsChange(
-                validSourceFieldIds || [],
+                sourceFieldIds || [],
                 newField ? newField.id : null,
                 idx,
-                setSourceFieldIds
+                (value) => globalConfig.setAsync(CONFIG.SOURCE_FIELD_IDS, value)
               )
             }}
-            canSetSourceFieldIds={canSetSourceFieldIds}
           />
           <Box
             height="100%"
