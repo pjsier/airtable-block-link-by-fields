@@ -1,59 +1,38 @@
+import React, { useEffect, useState } from "react"
+
 import {
   initializeBlock,
   useBase,
   useSynced,
   useGlobalConfig,
-  FieldPicker,
-  FieldPickerSynced,
-  TablePickerSynced,
-  ViewPickerSynced,
-  SwitchSynced,
   Box,
   Button,
   ConfirmationDialog,
   Heading,
-  FormField,
   Text,
-  Icon,
   useRecords,
-  CellRenderer,
   ViewportConstraint,
   Loader,
+  Icon,
   colors,
 } from "@airtable/blocks/ui"
-import { FieldType } from "@airtable/blocks/models"
-import React, { useEffect, useState } from "react"
-import { FixedSizeList as List } from "react-window"
-import AutoSizer from "react-virtualized-auto-sizer"
 
-const CONFIG = {
-  DEST_TABLE_ID: "destTableId",
-  DEST_VIEW_ID: "destViewId",
-  DEST_FIELD_IDS: "destFieldIds",
-  JOIN_FIELD_ID: "joinFieldId",
-  SOURCE_FIELD_IDS: "sourceFieldIds",
-  CASE_SENSITIVE: "caseSensitive",
-  OVERWRITE_EXISTING: "overwriteExisting",
-  JOIN_ON_ALL: "joinOnAll",
-}
-
-const MAX_FIELDS = 3
-const MAX_RECORDS_PER_UPDATE = 50
-const PADDING = 4
-const ROW_HEIGHT = 100
+import { CONFIG, MAX_FIELDS, MAX_RECORDS_PER_UPDATE } from "./constants"
+import Controls from "./controls"
+import Preview from "./preview"
 
 const createJoinKeys = (record, fieldIds, caseSensitive, joinOnAll) => {
-  const getValidJoinKeys = (rec) =>
+  const getJoinKeys = (rec) =>
     fieldIds
       .filter((fieldId) => fieldId !== null)
       .map((fieldId) => {
         const val = rec.getCellValueAsString(fieldId)
         return caseSensitive ? val : val.toLowerCase()
       })
-      .filter((val) => val.length > 0)
 
-  const validKeys = getValidJoinKeys(record)
-  return joinOnAll ? [validKeys.join(",")] : validKeys
+  const joinKeys = getJoinKeys(record)
+  const validKeys = joinKeys.filter((value) => value.length > 0)
+  return joinOnAll ? [joinKeys.join(",")] : validKeys
 }
 
 // Create a mapping of join key values to record IDs
@@ -100,23 +79,6 @@ const onFieldIdsChange = (fieldIds, newFieldId, fieldIdx, setFieldIds) => {
   const fieldIdsWithValues = fieldIds.filter((fId) => !!fId)
   setFieldIds([...fieldIdsWithValues])
 }
-
-const FieldLabel = ({ name }) => (
-  <Box
-    fontSize="11px"
-    lineHeight="13px"
-    textColor="#898989"
-    style={{
-      textTransform: "uppercase",
-      maxWidth: "100%",
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap",
-    }}
-  >
-    {name}
-  </Box>
-)
 
 const LinkByFieldsBlock = () => {
   const base = useBase()
@@ -216,7 +178,7 @@ const LinkByFieldsBlock = () => {
     (sourceFieldIds || []).every((fieldId) =>
       sourceTable.getFieldByIdIfExists(fieldId)
     ) &&
-    sourceFieldIds.length > 0
+    (sourceFieldIds || []).length > 0
       ? createJoinKeyMap(
           sourceRecords,
           sourceFieldIds,
@@ -264,13 +226,26 @@ const LinkByFieldsBlock = () => {
       sourceFields.filter((f) => f !== null).length > 0
     ) || isUpdating
 
-  let recordUpdatesDescription = `Select a linked record field to update`
+  let bottomBarText = ``
+  if (!destTable) {
+    bottomBarText = `Pick a table to enable update options`
+  } else if (!sourceTable) {
+    bottomBarText = `Pick a linked record field to enable match options`
+  } else if (isUpdating) {
+    bottomBarText = `Updating records...`
+  } else if (updateButtonIsDisabled) {
+    bottomBarText = `Pick fields to match on to link records`
+  }
+
+  let previewHeaderText = `Pick a table, linked record field, and matching fields to update linked records based on matching field values`
   if (joinField) {
-    recordUpdatesDescription = isUpdating
+    previewHeaderText = isUpdating
       ? `Updating records...`
       : `The ${
           joinField.name
-        } field of ${recordLinks.length.toLocaleString()} records will be updated`
+        } field of ${recordLinks.length.toLocaleString()} ${
+          recordLinks.length === 1 ? `record` : `records`
+        } in the ${destTable.name} table will be updated`
   }
 
   return (
@@ -282,154 +257,98 @@ const LinkByFieldsBlock = () => {
         right={0}
         bottom={0}
         display="flex"
-        flexDirection="row"
+        flexDirection="column"
       >
-        <Box>
+        <Box flex="auto" display="flex" flexDirection="row">
+          <Controls
+            destTable={destTable}
+            destFields={destFields}
+            onChangeDestFields={(newField, idx) => {
+              onFieldIdsChange(
+                destFieldIds || [],
+                newField ? newField.id : null,
+                idx,
+                setDestFieldIds
+              )
+            }}
+            canSetDestFieldIds={canSetDestFieldIds}
+            sourceTable={sourceTable}
+            sourceFields={sourceFields}
+            onChangeSourceFields={(newField, idx) => {
+              onFieldIdsChange(
+                sourceFieldIds || [],
+                newField ? newField.id : null,
+                idx,
+                setSourceFieldIds
+              )
+            }}
+            canSetSourceFieldIds={canSetSourceFieldIds}
+          />
           <Box
-            padding={2}
-            paddingBottom={0}
+            height="100%"
+            width="100%"
+            padding={3}
+            borderLeft="thick"
             display="flex"
             flexDirection="column"
-            style={{ width: "100%" }}
           >
-            <Box padding={1}>
-              <Heading>{`Link records by fields`}</Heading>
-              <Text style={{ marginBottom: "12px" }}>
-                Pick a table and field to update linked records based on
-                matching field values.
-              </Text>
+            <Box borderBottom="thick" flexGrow="0">
+              <Heading>Link records by fields</Heading>
+              <Text variant="paragraph">{previewHeaderText}</Text>
             </Box>
-            <Box display="flex" flexDirection="row">
-              <Box padding={1} style={{ flexGrow: "1" }}>
-                <FormField label="Table to be updated">
-                  <TablePickerSynced globalConfigKey={CONFIG.DEST_TABLE_ID} />
-                </FormField>
-                <FormField label="View to pull records from">
-                  <ViewPickerSynced
-                    table={destTable}
-                    globalConfigKey={CONFIG.DEST_VIEW_ID}
-                    shouldAllowPickingNone
-                    size="small"
-                  />
-                </FormField>
-              </Box>
-              <Box padding={1} style={{ flexGrow: "1" }}>
-                <FormField label="Linked field to update">
-                  <FieldPickerSynced
-                    table={destTable}
-                    allowedTypes={[FieldType.MULTIPLE_RECORD_LINKS]}
-                    globalConfigKey={CONFIG.JOIN_FIELD_ID}
-                    size="small"
-                  />
-                </FormField>
-              </Box>
-            </Box>
-            <Box borderTop="thick">
-              <Box paddingTop={3} paddingBottom={3}>
-                <Text
-                  style={{ fontWeight: "bold", color: colors.GRAY }}
-                  paddingBottom={2}
-                >
-                  Fields to match on
-                </Text>
-                <Text>
-                  Select fields from the table to update and the linked record
-                  table where records with matching values should be linked
-                </Text>
-              </Box>
-              <Box display="flex" flexDirection="row">
-                <Box padding={1} style={{ flexGrow: "1", width: "50%" }}>
-                  <FormField label="Update match fields">
-                    {destFields.map((field, idx) => (
-                      <FieldPicker
-                        key={idx}
-                        table={destTable}
-                        field={field}
-                        onChange={(newField) =>
-                          onFieldIdsChange(
-                            destFieldIds || [],
-                            newField ? newField.id : null,
-                            idx,
-                            setDestFieldIds
-                          )
-                        }
-                        disabled={!canSetDestFieldIds}
-                        shouldAllowPickingNone
-                        size="small"
-                        style={{ marginBottom: "4px" }}
-                      />
-                    ))}
-                  </FormField>
-                </Box>
-                <Box padding={1} style={{ flexGrow: "1", width: "50%" }}>
-                  <FormField label="Linked record match fields">
-                    {sourceTable ? (
-                      sourceFields.map((field, idx) => (
-                        <FieldPicker
-                          key={idx}
-                          table={sourceTable}
-                          field={field}
-                          onChange={(newField) =>
-                            onFieldIdsChange(
-                              sourceFieldIds || [],
-                              newField ? newField.id : null,
-                              idx,
-                              setSourceFieldIds
-                            )
-                          }
-                          disabled={!canSetSourceFieldIds}
-                          shouldAllowPickingNone
-                          size="small"
-                          style={{ marginBottom: "4px" }}
-                        />
-                      ))
-                    ) : (
-                      <Text>
-                        Select a linked field to update enable options
-                      </Text>
-                    )}
-                  </FormField>
-                </Box>
-              </Box>
-            </Box>
-          </Box>
-          <Box padding={2} paddingTop={0}>
-            <Box padding={1} style={{ flexGrow: "1" }}>
-              <Text style={{ fontWeight: "bold", color: colors.GRAY }}>
-                Match settings
-              </Text>
-              <FormField label="" style={{ marginBottom: "2px" }}>
-                <SwitchSynced
-                  globalConfigKey={CONFIG.CASE_SENSITIVE}
-                  label="Matching values should be case-sensitive"
-                  width={"100%"}
-                />
-              </FormField>
-              <FormField label="" style={{ marginBottom: "2px" }}>
-                <SwitchSynced
-                  globalConfigKey={CONFIG.JOIN_ON_ALL}
-                  label="Only update records where all fields match"
-                />
-              </FormField>
-              <FormField label="" style={{ marginBottom: "2px" }}>
-                <SwitchSynced
-                  globalConfigKey={CONFIG.OVERWRITE_EXISTING}
-                  label="Overwrite existing links with new matches"
-                />
-              </FormField>
-              <Button
-                disabled={updateButtonIsDisabled}
-                variant="primary"
-                onClick={async () => setIsDialogOpen(true)}
-                style={{ marginTop: `${PADDING * 4}px` }}
+            {recordLinks.length > 0 ? (
+              <Preview
+                recordLinks={recordLinks}
+                destFields={destFields}
+                joinField={joinField}
+                overwriteExisting={overwriteExisting}
+              />
+            ) : (
+              <Box
+                width="100%"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                flexGrow="1"
               >
-                Link records
-              </Button>
-            </Box>
+                <Heading textColor="light">No records to update</Heading>
+              </Box>
+            )}
           </Box>
+        </Box>
+        <Box
+          flex="none"
+          display="flex"
+          flexDirection="row"
+          alignItems="center"
+          justifyContent="space-between"
+          borderTop="thick"
+          padding={3}
+          paddingTop={3}
+          paddingBottom={3}
+        >
+          <Box display="flex" flexDirection="row" alignItems="center">
+            {updateButtonIsDisabled && !isUpdating && (
+              <Icon
+                name="warning"
+                size={16}
+                marginRight={2}
+                fillColor={colors.ORANGE}
+              />
+            )}
+            {isUpdating && <Loader scale={0.3} marginRight={2} />}
+            <Text textColor="light">{bottomBarText}</Text>
+          </Box>
+          <Button
+            disabled={updateButtonIsDisabled}
+            variant="primary"
+            onClick={async () => setIsDialogOpen(true)}
+          >
+            Link records
+          </Button>
           {isDialogOpen && (
             <ConfirmationDialog
-              title={"Are you sure?"}
+              title="Are you sure?"
               body={`This will update ${recordLinks.length} records`}
               onConfirm={() => {
                 setIsUpdating(true)
@@ -446,99 +365,6 @@ const LinkByFieldsBlock = () => {
               isConfirmActionDangerous
             />
           )}
-        </Box>
-        <Box height="100%" width="100%" padding={2} borderLeft="thick">
-          <Box borderBottom="thick">
-            <Heading>Records to update</Heading>
-            <Box
-              style={{ marginBottom: "12px" }}
-              display="flex"
-              flexDirection="row"
-              alignItems="center"
-            >
-              <Text>{recordUpdatesDescription}</Text>
-              {isUpdating && (
-                <Loader
-                  scale={0.3}
-                  style={{ marginLeft: `${PADDING * 3}px` }}
-                />
-              )}
-            </Box>
-          </Box>
-          <AutoSizer>
-            {({ height, width }) => (
-              <List
-                width={width}
-                height={height - PADDING * 16}
-                itemCount={recordLinks.length}
-                itemSize={ROW_HEIGHT}
-              >
-                {({ index, style }) => {
-                  const { record, match } = recordLinks[index]
-                  return (
-                    <Box
-                      key={record.id}
-                      display="flex"
-                      flexDirection="row"
-                      alignItems="center"
-                      style={style}
-                      borderBottom="thick"
-                    >
-                      <Box
-                        display="flex"
-                        flexDirection="column"
-                        style={{ maxWidth: "100%" }}
-                      >
-                        <Box
-                          fontSize="14px"
-                          height="18px"
-                          lineHeight={1.5}
-                          display="flex"
-                          alignItems="center"
-                          marginBottom={`${PADDING * 3}px`}
-                        >
-                          {record.name}
-                        </Box>
-                        <Box
-                          display="flex"
-                          flexDirection="row"
-                          alignItems="center"
-                          style={{
-                            maxWidth: "100%",
-                            overflowX: "scroll",
-                            overflowY: "hidden",
-                          }}
-                        >
-                          <Box>
-                            <FieldLabel name={joinField.name} />
-                            <Box
-                              display="flex"
-                              flexDirection="row"
-                              alignItems="center"
-                            >
-                              <Icon name="plus" fillColor={colors.GREEN} />
-                              <CellRenderer
-                                field={joinField}
-                                cellValue={[{ id: match.id, name: match.name }]}
-                              />
-                            </Box>
-                          </Box>
-                          {destFields
-                            .filter((field) => field !== null)
-                            .map((field) => (
-                              <Box key={field.id}>
-                                <FieldLabel name={field.name} />
-                                <CellRenderer field={field} record={record} />
-                              </Box>
-                            ))}
-                        </Box>
-                      </Box>
-                    </Box>
-                  )
-                }}
-              </List>
-            )}
-          </AutoSizer>
         </Box>
       </Box>
     </ViewportConstraint>
