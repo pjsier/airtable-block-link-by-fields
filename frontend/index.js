@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import React, { useState } from "react"
 
 import {
   initializeBlock,
@@ -55,12 +55,12 @@ const createJoinKeyMap = (records, fieldIds, caseSensitive, joinOnAll) =>
     )
 
 // Load fields from table by array of IDs, add null at the end if not at max
-const getFieldsFromTableIds = (table, fieldIds) => [
-  ...[...new Set(fieldIds)].map((fieldId) =>
-    table.getFieldByIdIfExists(fieldId)
-  ),
-  ...(new Set(fieldIds).size < MAX_FIELDS ? [null] : []),
-]
+const getFieldsFromTableIds = (table, fieldIds) => {
+  const validFields = [...new Set(fieldIds)]
+    .map((fieldId) => table.getFieldByIdIfExists(fieldId))
+    .filter((field) => !!field)
+  return validFields.concat(validFields.length < MAX_FIELDS ? [null] : [])
+}
 
 const updateRecords = async (table, recordsToUpdate) => {
   if (table.hasPermissionToUpdateRecords(recordsToUpdate)) {
@@ -94,6 +94,11 @@ const LinkByFieldsBlock = () => {
   const destFields = destTable
     ? getFieldsFromTableIds(destTable, destFieldIds || [])
     : []
+  // Only use valid field IDs, since relying entirely on synced global config
+  // state can result in some race conditions
+  const validDestFieldIds = destFields
+    .filter((field) => !!field)
+    .map(({ id }) => id)
 
   const joinFieldId = globalConfig.get(CONFIG.JOIN_FIELD_ID)
   const joinField = destTable
@@ -109,6 +114,9 @@ const LinkByFieldsBlock = () => {
   const sourceFields = sourceTable
     ? getFieldsFromTableIds(sourceTable, sourceFieldIds || [])
     : []
+  const validSourceFieldIds = sourceFields
+    .filter((field) => !!field)
+    .map(({ id }) => id)
 
   // Is join key matching case-sensitive
   const caseSensitive = globalConfig.get(CONFIG.CASE_SENSITIVE)
@@ -116,7 +124,6 @@ const LinkByFieldsBlock = () => {
   const overwriteExisting = globalConfig.get(CONFIG.OVERWRITE_EXISTING)
   // Whether to join on all keys matching or any
   const joinOnAll = globalConfig.get(CONFIG.JOIN_ON_ALL)
-  const [didMount, setDidMount] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const destTableOrView = destTable || destView
@@ -126,31 +133,6 @@ const LinkByFieldsBlock = () => {
   const sourceRecords = useRecords(
     sourceTable ? sourceTable.selectRecords() : []
   )
-
-  // Avoid triggering effects on initial load so that values aren't un-set
-  useEffect(() => {
-    setDidMount(true)
-  }, [])
-
-  // Unset config when the fields change
-  useEffect(() => {
-    if (!didMount) return
-    const updateFields = async () => {
-      await globalConfig.setAsync(CONFIG.DEST_FIELD_IDS, [])
-      await globalConfig.setAsync(CONFIG.JOIN_FIELD_ID, undefined)
-    }
-    updateFields()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destTableId])
-
-  useEffect(() => {
-    if (!didMount) return
-    const updateFields = async () => {
-      await globalConfig.setAsync(CONFIG.SOURCE_FIELD_IDS, [])
-    }
-    updateFields()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [joinFieldId])
 
   // If user doesn't have permissions, show permission reason instead of block
   const configSetPermissions = globalConfig.checkPermissionsForSet()
@@ -175,13 +157,13 @@ const LinkByFieldsBlock = () => {
 
   const sourceKeyMap =
     sourceTable &&
-    (sourceFieldIds || []).every((fieldId) =>
+    (validSourceFieldIds || []).every((fieldId) =>
       sourceTable.getFieldByIdIfExists(fieldId)
     ) &&
-    (sourceFieldIds || []).length > 0
+    (validSourceFieldIds || []).length > 0
       ? createJoinKeyMap(
           sourceRecords,
-          sourceFieldIds,
+          validSourceFieldIds,
           caseSensitive,
           joinOnAll
         )
@@ -190,7 +172,7 @@ const LinkByFieldsBlock = () => {
   const recordsToLink =
     destRecords &&
     joinFieldId &&
-    [joinFieldId, ...destFieldIds].every((fieldId) =>
+    [joinFieldId, ...validDestFieldIds].every((fieldId) =>
       destTable.getFieldByIdIfExists(fieldId)
     )
       ? destRecords
@@ -207,7 +189,7 @@ const LinkByFieldsBlock = () => {
       }
       const joinKeys = createJoinKeys(
         record,
-        destFieldIds || [],
+        validDestFieldIds || [],
         caseSensitive,
         joinOnAll
       )
@@ -265,7 +247,7 @@ const LinkByFieldsBlock = () => {
             destFields={destFields}
             onChangeDestFields={(newField, idx) => {
               onFieldIdsChange(
-                destFieldIds || [],
+                validDestFieldIds || [],
                 newField ? newField.id : null,
                 idx,
                 setDestFieldIds
@@ -276,7 +258,7 @@ const LinkByFieldsBlock = () => {
             sourceFields={sourceFields}
             onChangeSourceFields={(newField, idx) => {
               onFieldIdsChange(
-                sourceFieldIds || [],
+                validSourceFieldIds || [],
                 newField ? newField.id : null,
                 idx,
                 setSourceFieldIds
