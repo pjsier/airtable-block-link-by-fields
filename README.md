@@ -1,5 +1,7 @@
 # Link Records by Fields Airtable Block
 
+[![Build status](https://github.com/pjsier/airtable-block-link-by-fields/workflows/CI/badge.svg)](https://github.com/pjsier/airtable-block-link-by-fields/actions?query=workflow%3ACI)
+
 Airtable block for linking records by matching fields.
 
 Select a table to update, linked records to fill in, and what fields should match to link records in bulk. You can also configure the options for matching including whether it should be case-sensitive and if existing linked record fields should be overwritten.

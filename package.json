@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "license": "MIT",
   "scripts": {
-    "lint": "eslint frontend",
-    "format": "prettier --write \"**/*.{js,jsx,json,md}\""
+    "lint": "eslint frontend test",
+    "format": "prettier --write \"{frontend,test}/*.{js,jsx,json,md}\"",
+    "format-ci": "prettier --check \"{frontend,test}/*.{js,jsx,json,md}\"",
+    "test": "ava"
   },
   "dependencies": {
     "@airtable/blocks": "latest",
@@ -14,14 +16,23 @@
     "react-window": "^1.8.5"
   },
   "devDependencies": {
+    "ava": "^3.12.1",
     "eslint": "^7.6.0",
     "eslint-plugin-react": "^7.20.5",
     "eslint-plugin-react-hooks": "^2.5.1",
-    "prettier": "^2.0.5"
+    "esm": "^3.2.25",
+    "prettier": "^2.0.5",
+    "sinon": "^9.0.3"
+  },
+  "ava": {
+    "require": [
+      "esm"
+    ]
   },
   "eslintConfig": {
     "env": {
       "browser": true,
+      "node": true,
       "es6": true
     },
     "extends": [
