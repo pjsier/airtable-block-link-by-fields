@@ -1,6 +1,6 @@
-const test = require("ava")
-const { stub } = require("sinon")
-const { createJoinKeys, createJoinKeyMap } = require("../frontend/join")
+import test from "ava"
+import { stub } from "sinon"
+import { createJoinKeys, createJoinKeyMap } from "../frontend/join"
 
 test("creates correct join keys", (t) => {
   const cellValueStub = stub()
