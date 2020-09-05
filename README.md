@@ -6,7 +6,7 @@ Airtable block for linking records by matching fields.
 
 Select a table to update, linked records to fill in, and what fields should match to link records in bulk. You can also configure the options for matching including whether it should be case-sensitive and if existing linked record fields should be overwritten.
 
-![Block recording gif](https://raw.githubusercontent.com/pjsier/airtable-block-link-by-fields/main/assets/recording.gif?raw=true)
+![Screenshot of block in use](./assets/screenshot.png)
 
 ## How to remix this block
 
