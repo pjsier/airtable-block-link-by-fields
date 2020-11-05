@@ -90,7 +90,7 @@ const LinkByFieldsBlock = () => {
   const joinOnAll = globalConfig.get(CONFIG.JOIN_ON_ALL)
   const [isUpdating, setIsUpdating] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const destTableOrView = destTable || destView
+  const destTableOrView = destView || destTable
   const destRecords = useRecords(
     destTableOrView ? destTableOrView.selectRecords() : []
   )
