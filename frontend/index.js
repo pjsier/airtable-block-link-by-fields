@@ -176,7 +176,9 @@ const LinkByFieldsBlock = () => {
     !(
       destFields.filter((f) => f !== null).length > 0 &&
       sourceFields.filter((f) => f !== null).length > 0
-    ) || isUpdating
+    ) ||
+    recordLinks.length === 0 ||
+    isUpdating
 
   let bottomBarText = ``
   if (!destTable) {
