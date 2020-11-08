@@ -9,7 +9,7 @@ export const CONFIG = {
   JOIN_ON_ALL: "joinOnAll",
 }
 
-export const MAX_FIELDS = 3
+export const MAX_FIELDS = 5
 export const MAX_RECORDS_PER_UPDATE = 50
 export const GRID_SIZE = 4
 export const ROW_HEIGHT = 100
