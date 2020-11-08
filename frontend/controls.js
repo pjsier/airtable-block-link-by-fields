@@ -52,6 +52,16 @@ const Controls = ({
         </>
       )}
       {destTable && sourceTable && (
+        <FormField label="Linked record view">
+          <ViewPickerSynced
+            table={sourceTable}
+            globalConfigKey={CONFIG.SOURCE_FIELD_VIEW_ID}
+            shouldAllowPickingNone
+            size="small"
+          />
+        </FormField>
+      )}
+      {destTable && sourceTable && (
         <Box borderTop="thick">
           <Box paddingTop={3}>
             <Text fontWeight="bold" textColor={colors.GRAY} paddingBottom={2}>
