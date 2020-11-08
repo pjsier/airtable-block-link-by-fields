@@ -82,6 +82,12 @@ const LinkByFieldsBlock = () => {
     ? getFieldsFromTableIds(sourceTable, sourceFieldIds || [])
     : []
 
+  const sourceViewId = globalConfig.get(CONFIG.SOURCE_FIELD_VIEW_ID)
+  const sourceView = sourceTable
+    ? sourceTable.getViewByIdIfExists(sourceViewId)
+    : null
+  const sourceTableOrView = sourceView || sourceTable
+
   // Is join key matching case-sensitive
   const caseSensitive = globalConfig.get(CONFIG.CASE_SENSITIVE)
   // Whether destination records with values for the join field should be overwritten
@@ -95,7 +101,7 @@ const LinkByFieldsBlock = () => {
     destTableOrView ? destTableOrView.selectRecords() : []
   )
   const sourceRecords = useRecords(
-    sourceTable ? sourceTable.selectRecords() : []
+    sourceTableOrView ? sourceTableOrView.selectRecords() : []
   )
 
   // If user doesn't have permissions, show permission reason instead of block

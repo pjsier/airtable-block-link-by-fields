@@ -4,6 +4,7 @@ export const CONFIG = {
   DEST_FIELD_IDS: "destFieldIds",
   JOIN_FIELD_ID: "joinFieldId",
   SOURCE_FIELD_IDS: "sourceFieldIds",
+  SOURCE_FIELD_VIEW_ID: "sourceViewId",
   CASE_SENSITIVE: "caseSensitive",
   OVERWRITE_EXISTING: "overwriteExisting",
   JOIN_ON_ALL: "joinOnAll",
