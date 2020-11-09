@@ -27,7 +27,7 @@ jobs:
           echo $AIRTABLE_BLOCK_REMOTE > .block/remote.json
           echo "{\"airtableApiKey\": \"$AIRTABLE_API_KEY\"}" > .airtableblocksrc.json
           block release
-          block submit
+          block submit > /dev/null 2>&1
 
       - name: Create release
         uses: actions/create-release@v1
