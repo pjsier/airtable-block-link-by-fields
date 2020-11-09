@@ -22,6 +22,8 @@ jobs:
           npm install -g @airtable/blocks-cli
 
       - name: Submit to Airtable
+        env:
+          AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
         run: |
           echo "$AIRTABLE_API_KEY" | block set-api-key
           block release
