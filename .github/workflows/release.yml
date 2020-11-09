@@ -23,7 +23,7 @@ jobs:
 
       - name: Submit to Airtable
         run: |
-          printf "$AIRTABLE_API_KEY\n" | block set-api-key --location block
+          echo "$AIRTABLE_API_KEY" | block set-api-key
           block release
           block submit > /dev/null 2>&1
 
