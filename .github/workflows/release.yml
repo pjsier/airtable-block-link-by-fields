@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  submit:
+    name: Submit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+
+      - uses: actions/setup-node@v1
+        with:
+          node-version: "12.x"
+
+      - name: Install dependencies
+        run: |
+          npm ci --prefer-offline --no-audit
+          npm install -g @airtable/blocks-cli
+
+      - name: Submit to Airtable
+        run: |
+          mkdir .block
+          echo $AIRTABLE_BLOCK_REMOTE > .block/remote.json
+          echo "{\"airtableApiKey\": \"$AIRTABLE_API_KEY\"}" > .airtableblocksrc.json
+          block release
+          block submit
+
+      - name: Create release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: false
+          prerelease: false
