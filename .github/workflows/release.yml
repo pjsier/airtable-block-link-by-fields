@@ -23,8 +23,6 @@ jobs:
 
       - name: Submit to Airtable
         run: |
-          mkdir .block
-          echo $AIRTABLE_BLOCK_REMOTE > .block/remote.json
           echo "{\"airtableApiKey\": \"$AIRTABLE_API_KEY\"}" > .airtableblocksrc.json
           block release
           block submit > /dev/null 2>&1
