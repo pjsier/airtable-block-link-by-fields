@@ -71,9 +71,10 @@ const LinkByFieldsBlock = () => {
     ? destTable.getFieldByIdIfExists(joinFieldId)
     : null
 
-  const sourceTable = joinField
-    ? base.getTableByIdIfExists(joinField.options.linkedTableId)
-    : null
+  const sourceTable =
+    joinField && joinField.options
+      ? base.getTableByIdIfExists(joinField.options.linkedTableId)
+      : null
   const sourceFieldIds = (globalConfig.get(CONFIG.SOURCE_FIELD_IDS) || "")
     .toString()
     .split(",")
