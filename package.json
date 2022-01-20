@@ -9,19 +9,19 @@
     "test": "ava"
   },
   "dependencies": {
-    "@airtable/blocks": "^1.2.0",
-    "react": "^16.13.1",
-    "react-dom": "^16.13.1",
-    "react-virtualized-auto-sizer": "^1.0.2",
-    "react-window": "^1.8.5"
+    "@airtable/blocks": "^1.10.1",
+    "react": "^16.8.0",
+    "react-dom": "^16.8.0",
+    "react-virtualized-auto-sizer": "^1.0.6",
+    "react-window": "^1.8.6"
   },
   "devDependencies": {
     "ava": "^3.12.1",
-    "eslint": "^7.6.0",
-    "eslint-plugin-react": "^7.20.5",
-    "eslint-plugin-react-hooks": "^2.5.1",
+    "eslint": "^8.7.0",
+    "eslint-plugin-react": "^7.28.0",
+    "eslint-plugin-react-hooks": "^4.3.0",
     "esm": "^3.2.25",
-    "prettier": "^2.0.5",
+    "prettier": "^2.5.1",
     "sinon": "^9.0.3"
   },
   "ava": {
